@@ -4,9 +4,9 @@
 
 This repository contains the implementation of a home assignment for deploying PostgreSQL on a local Kubernetes environment using the Percona PostgreSQL Operator.
 
-The objective was to deploy a functional PostgreSQL cluster, verify database connectivity, and document both the deployment process and the implementation decisions.
+The goal was to deploy a functional PostgreSQL cluster, verify database connectivity, and document the deployment process and implementation decisions.
 
----
+**The implementation intentionally keeps the solution simple and relies on the official Percona Helm charts, reflecting the scope of the assignment.**
 
 ## Table of Contents
 
@@ -18,102 +18,39 @@ The objective was to deploy a functional PostgreSQL cluster, verify database con
 6. [Verification](#verification)
 7. [Design Decisions](#design-decisions)
 8. [Limitations](#limitations)
-9. [Future Improvements](#future-improvements)
-10. [Summary](#summary)
+9. [Production Considerations](#production-considerations)
+10. [Resources Used](#resources-used)
+11. [Summary](#summary)
 
----
+## Overview
 
-# Overview
+This project demonstrates a PostgreSQL cluster running on a local Kubernetes environment and managed by the **Percona PostgreSQL Operator**.
 
-This project demonstrates how to deploy a PostgreSQL cluster on a local Kubernetes environment using the **Percona PostgreSQL Operator**.
-
-The deployment includes:
-
-- Installing a local Kubernetes cluster with Minikube
-- Installing the Percona PostgreSQL Operator
-- Deploying a PostgreSQL cluster
-- Verifying cluster health
-- Connecting to PostgreSQL
-- Executing a SQL query to validate the deployment
-
-### Tested with
-
+**Tested with:**
 - Kubernetes v1.30
 - Minikube v1.34
 - Helm v3
 - PostgreSQL 18.4
 
----
+## Prerequisites
 
-# Prerequisites
+Required tools:
 
-## Required Software
+- **kubectl**
+- **Helm 3**
+- **Minikube**
+- A supported Minikube driver
+- **psql** for connectivity testing
 
-- kubectl 1.24+
-- Helm 3+
-- Minikube
-- A supported Minikube driver (for example Docker)
-- PostgreSQL client (`psql`)
-
-## Verify Installation
+Verify the required tools:
 
 ```bash
-kubectl version --short
+kubectl version
 helm version
 minikube version
 ```
 
-All commands should complete successfully.
-
----
-
-## macOS Installation
-
-```bash
-brew install kubectl helm minikube docker
-```
-
-Install PostgreSQL client:
-
-```bash
-brew install libpq
-brew link --force libpq
-```
-
----
-
-## Ubuntu / Debian Installation
-
-```bash
-sudo apt-get update
-sudo apt-get install -y curl
-
-# kubectl
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-
-# Helm
-curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-
-# Minikube
-curl -LO https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-amd64
-sudo install minikube-linux-amd64 /usr/local/bin/minikube
-
-# Docker
-sudo apt-get install -y docker.io
-sudo usermod -aG docker $USER
-
-# PostgreSQL client
-sudo apt-get install -y postgresql-client
-```
-
----
-
-# Minikube Installation
-
-## Recommended Local Environment
-
-The following resources were allocated to Minikube during this assignment:
+## Minikube Installation
 
 ```bash
 minikube start \
@@ -123,100 +60,51 @@ minikube start \
   --kubernetes-version=v1.30.0
 ```
 
-Verify the cluster:
+Verify:
 
 ```bash
 minikube status
-```
-
-Expected output:
-
-```
-minikube
-type: Control Plane
-host: Running
-kubelet: Running
-apiserver: Running
-kubeconfig: Configured
-```
-
-Verify Kubernetes connectivity:
-
-```bash
-kubectl cluster-info
 kubectl get nodes
 ```
 
-The node should appear in the **Ready** state.
+## Architecture
 
----
+![PostgreSQL Kubernetes Architecture](./images/architecture.png)
 
-# Architecture
+The deployment includes:
 
-The following diagram illustrates the deployed architecture.
+- **Percona PostgreSQL Operator** for cluster lifecycle management
+- **3 PostgreSQL instances** managed by the Operator
+- **pgBouncer** for connection pooling
+- **Persistent Volumes** for database storage
+- **Backup repository** managed by the Percona Operator
+- **Kubernetes Services** for internal database access
+- **TLS/SSL connectivity** provided by the default Percona configuration
 
-![PostgreSQL Kubernetes Architecture](./architecture.png)
+> **Note:** All workloads run on a single Minikube node. Multiple PostgreSQL instances provide logical redundancy, but not infrastructure-level high availability.
 
-The deployment consists of:
+## Deployment
 
-- **Percona PostgreSQL Operator**
-  - Manages the PostgreSQL cluster lifecycle
-  - Automates operational tasks
-
-- **PostgreSQL Cluster**
-  - Three PostgreSQL instances
-  - Primary / Replica topology managed automatically
-
-- **pgBouncer**
-  - Connection pooling
-
-- **Persistent Volumes**
-  - Persistent database storage
-
-- **Backup Repository**
-  - Local repository used by the Operator
-
-- **Kubernetes Services**
-  - Internal access to PostgreSQL
-
-- **TLS/SSL**
-  - Enabled by the default Percona configuration
-
-> **Note**
->
-> This deployment runs on a **single-node Minikube cluster**.
-> Although multiple PostgreSQL instances are created, this does **not** provide infrastructure-level high availability because all workloads run on the same Kubernetes node.
-
----
-
-# Deployment
-
-## 1. Add Percona Helm Repository
+### 1. Add the Percona Helm Repository
 
 ```bash
 helm repo add percona https://percona.github.io/percona-helm-charts/
 helm repo update
 ```
 
----
-
-## 2. Create Namespace
+### 2. Create the PostgreSQL Namespace
 
 ```bash
 kubectl create namespace postgresql
 ```
 
-The dedicated namespace isolates PostgreSQL resources from the rest of the cluster.
-
----
-
-## 3. Install the Percona PostgreSQL Operator
+### 3. Install the Percona PostgreSQL Operator
 
 ```bash
 helm install pg-operator percona/pg-operator -n postgresql
 ```
 
-Verify the installation:
+Verify:
 
 ```bash
 kubectl get pods -n postgresql
@@ -224,27 +112,17 @@ kubectl get deployments -n postgresql
 kubectl get crds | grep -i percona
 ```
 
-The CRDs confirm that the Operator extended Kubernetes with the custom resources required to manage PostgreSQL clusters.
-
----
-
-## 4. Deploy the PostgreSQL Cluster
+### 4. Deploy the PostgreSQL Cluster
 
 ```bash
 helm install postgres-cluster percona/pg-db -n postgresql
 ```
 
-Wait until all Pods reach the **Running** state.
-
 ```bash
 kubectl get pods -n postgresql -w
 ```
 
-Press **Ctrl+C** once every Pod is running.
-
----
-
-## 5. Verify the Deployment
+### 5. Verify Kubernetes Resources
 
 ```bash
 kubectl get pods -n postgresql
@@ -252,161 +130,97 @@ kubectl get svc -n postgresql
 kubectl get pvc -n postgresql
 ```
 
-Verify that:
+## Verification
 
-- PostgreSQL Pods are running
-- pgBouncer Pods are running
-- Services were created successfully
-- PersistentVolumeClaims are in the **Bound** state
-
----
-
-# Verification
-
-## Retrieve Database Credentials
-
-Username
+### Cluster Status
 
 ```bash
-kubectl get secret postgres-cluster-pg-d-pguser-postgres-cluster-pg-d \
--n postgresql \
--o jsonpath='{.data.user}' | base64 -d
+kubectl get pg -n postgresql
 ```
 
-Password
+![PostgreSQL Cluster Status](./images/pg.png)
+
+### Retrieve Credentials
 
 ```bash
-kubectl get secret postgres-cluster-pg-d-pguser-postgres-cluster-pg-d \
--n postgresql \
--o jsonpath='{.data.password}' | base64 -d
+kubectl get secret postgres-cluster-pg-d-pguser-postgres-cluster-pg-d -n postgresql -o jsonpath='{.data.user}' | base64 -d
+kubectl get secret postgres-cluster-pg-d-pguser-postgres-cluster-pg-d -n postgresql -o jsonpath='{.data.password}' | base64 -d
 ```
 
----
-
-## Port Forward
+### Port Forward
 
 ```bash
-kubectl port-forward \
--n postgresql \
-svc/postgres-cluster-pg-d-pgbouncer \
-5432:5432
+kubectl port-forward -n postgresql svc/postgres-cluster-pg-d-pgbouncer 5432:5432
 ```
 
----
-
-## Connect with psql
+### Connect
 
 ```bash
-PGSSLMODE=require \
-psql \
--h localhost \
--U postgres-cluster-pg-d \
--d postgres
+PGSSLMODE=require psql -h localhost -U postgres-cluster-pg-d -d postgres
 ```
 
-Enter the password when prompted.
-
----
-
-## Execute Test Query
+### Test Query
 
 ```sql
 SELECT version();
 ```
 
-Successful execution confirms that:
+![PostgreSQL Connectivity Verification](./images/postgresql.png)
+
+The successful connection confirms:
 
 - PostgreSQL is reachable
-- Database authentication succeeds
+- Authentication succeeds
 - SQL queries execute successfully
-- SSL/TLS connectivity is active
+- TLS/SSL connectivity is active
 
-Exit:
+## Design Decisions
 
-```sql
-\q
-```
+**Minikube** – A lightweight local Kubernetes environment suitable for the assignment.
 
----
+**Helm** – The official Percona Helm charts were used to keep the deployment simple, reproducible and aligned with the supported installation method.
 
-# Design Decisions
+**Dedicated Namespace** – PostgreSQL resources are isolated in a dedicated `postgresql` namespace.
 
-### Minikube
+**Default Helm Values** – The deployment intentionally uses the official chart defaults. No custom `values.yaml` was required.
 
-Minikube was selected because the assignment requires a local Kubernetes environment.
-It provides a lightweight Kubernetes cluster that is simple to install and suitable for local testing.
+**Scope** – The implementation intentionally focuses on the scope of the assignment. Additional tooling such as Terraform, GitOps, or CI/CD would be considered in a larger production environment.
 
-### Helm
+## Limitations
 
-The official Percona Helm charts were used to install both the PostgreSQL Operator and the PostgreSQL cluster.
-
-This approach simplifies installation, improves reproducibility, and reduces manual resource management.
-
-### Dedicated Namespace
-
-A dedicated namespace (`postgresql`) was created to isolate database resources from other Kubernetes workloads.
-
-Since this is a one-time local deployment, the namespace was created imperatively using:
-
-```bash
-kubectl create namespace postgresql
-```
-
-### Default Helm Values
-
-The deployment intentionally uses the default Helm chart configuration.
-
-The purpose of the assignment is to demonstrate a successful deployment rather than production tuning.
-
-### Scope
-
-Additional tooling such as:
-
-- Terraform
-- GitOps
-- Custom Helm charts
-- CI/CD automation
-
-was intentionally excluded to keep the implementation aligned with the assignment scope.
-
----
-
-# Limitations
-
-- Single-node Kubernetes cluster
-- Intended for local testing only
-- No off-cluster backup storage
+- Single-node Minikube environment
+- No node-level fault tolerance
+- No external backup storage
 - Default Helm configuration
 - No production resource tuning
-- No monitoring stack
-- No NetworkPolicies
+- No monitoring or NetworkPolicies
 
----
+## Production Considerations
 
-# Future Improvements
+If this deployment were intended for a production environment rather than a home assignment, I would consider the following improvements:
 
-Possible enhancements include:
+- Deploy the cluster on a multi-node Kubernetes environment.
+- Use a custom `values.yaml` for explicit resource sizing and configuration.
+- Configure external object storage (S3-compatible) for backups.
+- Add monitoring and alerting with Prometheus and Grafana.
+- Define NetworkPolicies to restrict traffic between workloads.
+- Configure resource requests and limits for all components.
+- Store credentials using an external secrets manager rather than relying only on Kubernetes Secrets.
+- Enable encryption at rest and manage encryption keys securely.
+- Apply least-privilege access for both PostgreSQL users and Kubernetes RBAC.
+- Automate deployment using GitOps or CI/CD workflows.
 
-- Custom `values.yaml`
-- Resource requests and limits
-- External S3-compatible backups
-- Prometheus & Grafana monitoring
-- Multi-node Kubernetes deployment
-- NetworkPolicies
-- Automated deployment using GitOps or CI/CD pipelines
+The goal of this assignment was to demonstrate a clean and reproducible deployment rather than a production-ready database platform. The items above represent the next steps I would prioritize before deploying this architecture in production.
 
----
+## Resources Used
 
-# Summary
+- Official Percona Helm Charts: https://github.com/percona/percona-helm-charts
+- Official Percona PostgreSQL Operator Documentation: https://docs.percona.com/percona-operator-for-postgresql/
 
-This project demonstrates the deployment of a PostgreSQL cluster managed by the Percona PostgreSQL Operator on a local Kubernetes environment.
+No custom PostgreSQL manifests or custom Helm values were used in this implementation.
 
-The implementation includes:
+## Summary
 
-- Kubernetes environment setup
-- PostgreSQL Operator installation
-- PostgreSQL cluster deployment
-- Database connectivity verification
-- Documentation of the implementation decisions
+This project demonstrates a functional PostgreSQL cluster managed by the Percona PostgreSQL Operator on a local Kubernetes environment.
 
-The solution intentionally remains simple, reproducible, and aligned with the scope of the assignment.
+The environment was successfully deployed, the cluster reached a `ready` state, and database connectivity was verified with a real SQL query over TLS.
