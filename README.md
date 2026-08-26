@@ -155,7 +155,7 @@ The node should appear in the **Ready** state.
 
 The following diagram illustrates the deployed architecture.
 
-![PostgreSQL Kubernetes Architecture](./postgresql/architecture.png)
+![PostgreSQL Kubernetes Architecture](./architecture.png)
 
 The deployment consists of:
 
