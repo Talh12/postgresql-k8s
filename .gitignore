@@ -1,81 +1,10 @@
-# ---------------------------------------------------------------------------
-# Kubernetes / cluster access
-# ---------------------------------------------------------------------------
-kubeconfig
-kubeconfig.*
-*.kubeconfig
-.kube/
+# macOS
+.DS_Store
 
-# ---------------------------------------------------------------------------
-# Secret material
-#
-# The TLS material used by the cluster is generated locally by
-# scripts/setup.sh (see .tls/) and must never be committed. Rendered
-# manifests may contain resolved secret values, so they are excluded too.
-# ---------------------------------------------------------------------------
-.tls/
-*.pem
-*.key
-*.crt
-*.csr
-*.p12
-*.pfx
-*.jks
-secrets.yaml
-secrets.*.yaml
-*-secret.yaml
-!k8s/03-secrets.yaml
-.env
-.env.*
-!.env.example
-
-# ---------------------------------------------------------------------------
-# Helm
-# ---------------------------------------------------------------------------
-charts/
-*.tgz
-.helm/
-values.local.yaml
-values.*.local.yaml
-
-# ---------------------------------------------------------------------------
-# Terraform (in case the environment is promoted to IaC later)
-# ---------------------------------------------------------------------------
-.terraform/
-.terraform.lock.hcl
-*.tfstate
-*.tfstate.*
-*.tfvars
-!*.tfvars.example
-crash.log
-
-# ---------------------------------------------------------------------------
-# Logs, dumps and local scratch output
-# ---------------------------------------------------------------------------
-*.log
-logs/
-debug-bundle*/
-debug-bundle*.tar.gz
-*.dump
-*.sql.gz
-tmp/
-.scratch/
-
-# ---------------------------------------------------------------------------
-# Editors / IDE
-# ---------------------------------------------------------------------------
+# IDE
 .idea/
 .vscode/
-*.swp
-*.swo
-*~
-.history/
 
-# ---------------------------------------------------------------------------
-# OS noise
-# ---------------------------------------------------------------------------
-.DS_Store
-.DS_Store?
-._*
-Thumbs.db
-desktop.ini
+# Temporary files
+*.swp
+*~
